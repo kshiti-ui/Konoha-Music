@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import logging
 from .utils import format_duration
+import asyncio
 
 class MusicCommands(commands.Cog):
     """Music commands for the Discord bot."""
@@ -10,6 +11,7 @@ class MusicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(__name__)
+        self.setup_channels = {}  # Store setup channels for each guild
     
     @app_commands.command(name="play", description="Play a song or add it to queue")
     async def play_slash(self, interaction: discord.Interaction, query: str):
@@ -233,43 +235,42 @@ class MusicCommands(commands.Cog):
         latency = round(self.bot.latency * 1000)
         await interaction.response.send_message(f"🏓 Pong! Latency: {latency}ms")
     
-    @app_commands.command(name="setup", description="Setup the bot for this server")
+    @app_commands.command(name="setup", description="Setup interactive music control panel")
     async def setup_slash(self, interaction: discord.Interaction):
         """Setup command via slash command."""
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ You need administrator permissions to use this command!")
-            return
+        await interaction.response.defer()
         
+        # Store this channel as the setup channel for this guild
+        self.setup_channels[interaction.guild.id] = interaction.channel.id
+        
+        # Create the interactive control panel
         embed = discord.Embed(
-            title="🎵 Music Bot Setup Complete!",
-            description="The bot is now ready to use in this server.",
-            color=discord.Color.green()
+            title="🎵 Vibing Music 🎵",
+            description=(
+                "Eruptor is an incredibly versatile and powerful music bot, crafted "
+                "to elevate your Discord experience with smooth, intuitive features "
+                "and exceptional performance. Whether you're hosting a casual "
+                "hangout or a vibrant event, Eruptor ensures high-quality music "
+                "playback and seamless integration with your server.\n\n"
+                "**Just type a song name in this channel to play it!**\n"
+                "No need to use commands - just type the song name and it will be added to queue."
+            ),
+            color=0x9932CC
         )
-        embed.add_field(
-            name="Available Commands",
-            value="• `/play` - Play music from YouTube, Spotify, or SoundCloud\n"
-                  "• `/pause` - Pause current song\n"
-                  "• `/resume` - Resume paused song\n"
-                  "• `/skip` - Skip current song\n"
-                  "• `/stop` - Stop and clear queue\n"
-                  "• `/queue` - Show current queue\n"
-                  "• `/loop` - Toggle loop mode\n"
-                  "• `/shuffle` - Shuffle queue\n"
-                  "• `/rewind` - Restart current song\n"
-                  "• `/previous` - Play previous song\n"
-                  "• `/clear` - Clear messages\n"
-                  "• `/disconnect` - Disconnect from voice\n"
-                  "• `/ping` - Check bot latency",
-            inline=False
-        )
-        embed.add_field(
-            name="Supported Platforms",
-            value="🎥 YouTube (Priority)\n🎵 Spotify\n🔊 SoundCloud",
-            inline=False
-        )
-        embed.set_footer(text="Join a voice channel and use /play to start listening!")
         
-        await interaction.response.send_message(embed=embed)
+        # Add the music control buttons
+        view1 = MusicControlView(self.bot)
+        view2 = MusicControlView2(self.bot)
+        
+        await interaction.followup.send(embed=embed, view=view1)
+        await interaction.followup.send("🎛️ **Music Controls**", view=view2)
+        
+        # Send a confirmation message
+        await interaction.followup.send(
+            "✅ Music control panel has been set up! "
+            "Now you can simply type song names in this channel to play them.",
+            ephemeral=True
+        )
     
     # Text-based commands for backward compatibility
     @commands.command(name="play", aliases=['p'])
@@ -388,3 +389,150 @@ class MusicCommands(commands.Cog):
             await ctx.send(f"🗑️ Deleted {len(deleted) - 1} messages", delete_after=5)
         except Exception as e:
             await ctx.send(f"❌ Failed to delete messages: {e}")
+
+class MusicControlView(discord.ui.View):
+    """Interactive music control panel with buttons."""
+    
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+    
+    @discord.ui.button(label="Pause", style=discord.ButtonStyle.primary, emoji="⏸️")
+    async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Pause button handler."""
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        
+        if not music_player.is_playing:
+            await interaction.response.send_message("❌ Nothing is currently playing!", ephemeral=True)
+            return
+        
+        music_player.pause()
+        await interaction.response.send_message("⏸️ Paused the current song", ephemeral=True)
+    
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.secondary, emoji="⏮️")
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Previous button handler."""
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        
+        if not hasattr(music_player, 'previous_songs') or not music_player.previous_songs:
+            await interaction.response.send_message("❌ No previous songs available!", ephemeral=True)
+            return
+        
+        prev_song = music_player.previous_songs.pop()
+        
+        if music_player.voice_client and music_player.voice_client.is_playing():
+            music_player.voice_client.stop()
+        
+        if music_player.current_song:
+            music_player.queue.add_to_front(music_player.current_song)
+        
+        music_player.queue.add_to_front(prev_song)
+        await interaction.response.send_message("⏮️ Playing previous song!", ephemeral=True)
+    
+    @discord.ui.button(label="Skip", style=discord.ButtonStyle.secondary, emoji="⏭️")
+    async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Skip button handler."""
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        
+        if not music_player.is_playing:
+            await interaction.response.send_message("❌ Nothing is currently playing!", ephemeral=True)
+            return
+        
+        music_player.skip()
+        await interaction.response.send_message("⏭️ Skipped the current song", ephemeral=True)
+    
+    @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger, emoji="⏹️")
+    async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Stop button handler."""
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        
+        music_player.stop()
+        music_player.clear_queue()
+        await interaction.response.send_message("⏹️ Stopped playing and cleared the queue", ephemeral=True)
+    
+    @discord.ui.button(label="Repair", style=discord.ButtonStyle.secondary, emoji="🔧")
+    async def repair_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Repair button handler (reconnect to voice)."""
+        await interaction.response.defer(ephemeral=True)
+        
+        if not interaction.user.voice:
+            await interaction.followup.send("❌ You need to be in a voice channel for repair!", ephemeral=True)
+            return
+        
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        
+        # Disconnect and reconnect
+        if music_player.voice_client:
+            await music_player.voice_client.disconnect()
+        
+        # Reconnect to voice channel
+        voice_channel = interaction.user.voice.channel
+        if await music_player.connect(voice_channel):
+            await interaction.followup.send("🔧 Repaired voice connection!", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Failed to repair voice connection!", ephemeral=True)
+
+# Second row of buttons
+class MusicControlView2(discord.ui.View):
+    """Second row of music control buttons."""
+    
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+    
+    @discord.ui.button(label="Shuffle", style=discord.ButtonStyle.secondary, emoji="🔀")
+    async def shuffle_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Shuffle button handler."""
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        
+        if music_player.queue.is_empty():
+            await interaction.response.send_message("❌ Queue is empty!", ephemeral=True)
+            return
+        
+        music_player.queue.shuffle()
+        await interaction.response.send_message("🔀 Shuffled the queue!", ephemeral=True)
+    
+    @discord.ui.button(label="Loop", style=discord.ButtonStyle.secondary, emoji="🔄")
+    async def loop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Loop button handler."""
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        
+        loop_status = music_player.toggle_loop()
+        status_text = "enabled" if loop_status else "disabled"
+        await interaction.response.send_message(f"🔄 Loop mode {status_text}", ephemeral=True)
+    
+    @discord.ui.button(label="Rewind", style=discord.ButtonStyle.secondary, emoji="⏪")
+    async def rewind_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Rewind button handler."""
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        
+        if not music_player.current_song:
+            await interaction.response.send_message("❌ No song is currently playing!", ephemeral=True)
+            return
+        
+        if music_player.voice_client and music_player.voice_client.is_playing():
+            music_player.voice_client.stop()
+        
+        music_player.queue.add_to_front(music_player.current_song)
+        await interaction.response.send_message("⏪ Rewinding current song!", ephemeral=True)
+    
+    @discord.ui.button(label="Clear", style=discord.ButtonStyle.danger, emoji="🗑️")
+    async def clear_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Clear button handler."""
+        if not interaction.user.guild_permissions.manage_messages:
+            await interaction.response.send_message("❌ You need manage messages permission!", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            deleted = await interaction.channel.purge(limit=10)
+            await interaction.followup.send(f"🗑️ Deleted {len(deleted)} messages", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Failed to delete messages: {e}", ephemeral=True)
+    
+    @discord.ui.button(label="Ping", style=discord.ButtonStyle.secondary, emoji="🏓")
+    async def ping_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Ping button handler."""
+        latency = round(self.bot.latency * 1000)
+        await interaction.response.send_message(f"🏓 Pong! Latency: {latency}ms", ephemeral=True)

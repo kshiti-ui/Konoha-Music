@@ -95,6 +95,59 @@ class MusicBot(commands.Bot):
             await self.music_players[guild_id].cleanup()
             del self.music_players[guild_id]
     
+    async def on_message(self, message):
+        """Handle messages in setup channels."""
+        if message.author.bot:
+            return
+        
+        # Check if message is in a setup channel
+        if hasattr(self, 'cogs') and 'MusicCommands' in [cog.__class__.__name__ for cog in self.cogs.values()]:
+            music_cog = discord.utils.get(self.cogs.values(), qualified_name='MusicCommands')
+            if music_cog and message.guild and message.guild.id in music_cog.setup_channels:
+                if message.channel.id == music_cog.setup_channels[message.guild.id]:
+                    # This is a setup channel, treat message as a song request
+                    if not message.author.voice:
+                        await message.add_reaction("❌")
+                        await message.reply("❌ You need to be in a voice channel to request songs!", delete_after=10)
+                        return
+                    
+                    # Add song to queue
+                    voice_channel = message.author.voice.channel
+                    music_player = self.get_music_player(message.guild.id)
+                    
+                    if not await music_player.connect(voice_channel):
+                        await message.add_reaction("❌")
+                        await message.reply("❌ Failed to connect to voice channel!", delete_after=10)
+                        return
+                    
+                    # Add to queue
+                    song_info = await music_player.add_to_queue(message.content, message.author)
+                    if song_info:
+                        await message.add_reaction("✅")
+                        platform_emoji = {
+                            'youtube': '🎥',
+                            'spotify': '🎵',
+                            'soundcloud': '🔊'
+                        }.get(song_info.get('platform', 'youtube'), '🎵')
+                        
+                        embed = discord.Embed(
+                            title=f"{platform_emoji} Added to Queue",
+                            description=f"**{song_info['title']}**\nRequested by {message.author.mention}",
+                            color=discord.Color.green()
+                        )
+                        if song_info.get('thumbnail'):
+                            embed.set_thumbnail(url=song_info['thumbnail'])
+                        
+                        await message.reply(embed=embed, delete_after=15)
+                    else:
+                        await message.add_reaction("❌")
+                        await message.reply("❌ Failed to find or add the song to queue!", delete_after=10)
+                    
+                    return
+        
+        # Process regular commands
+        await self.process_commands(message)
+    
     def get_music_player(self, guild_id):
         """Get or create music player for guild."""
         if guild_id not in self.music_players:
