@@ -235,42 +235,59 @@ class MusicCommands(commands.Cog):
         latency = round(self.bot.latency * 1000)
         await interaction.response.send_message(f"🏓 Pong! Latency: {latency}ms")
     
-    @app_commands.command(name="setup", description="Setup interactive music control panel")
-    async def setup_slash(self, interaction: discord.Interaction):
-        """Setup command via slash command."""
-        await interaction.response.defer()
-        
-        # Store this channel as the setup channel for this guild
-        self.setup_channels[interaction.guild.id] = interaction.channel.id
-        
-        # Create the interactive control panel
+    @app_commands.command(name="commands", description="Display all available bot commands")
+    async def commands_slash(self, interaction: discord.Interaction):
+        """Commands command via slash command."""
         embed = discord.Embed(
-            title="🎵 Vibing Music 🎵",
-            description=(
-                "Eruptor is an incredibly versatile and powerful music bot, crafted "
-                "to elevate your Discord experience with smooth, intuitive features "
-                "and exceptional performance. Whether you're hosting a casual "
-                "hangout or a vibrant event, Eruptor ensures high-quality music "
-                "playback and seamless integration with your server.\n\n"
-                "**Just type a song name in this channel to play it!**\n"
-                "No need to use commands - just type the song name and it will be added to queue."
-            ),
+            title="🎵 Music Bot Commands",
+            description="Here are all the available commands for the music bot:",
             color=0x9932CC
         )
         
-        # Add the music control buttons
-        view1 = MusicControlView(self.bot)
-        view2 = MusicControlView2(self.bot)
-        
-        await interaction.followup.send(embed=embed, view=view1)
-        await interaction.followup.send("🎛️ **Music Controls**", view=view2)
-        
-        # Send a confirmation message
-        await interaction.followup.send(
-            "✅ Music control panel has been set up! "
-            "Now you can simply type song names in this channel to play them.",
-            ephemeral=True
+        # Music commands
+        embed.add_field(
+            name="🎵 Music Commands",
+            value=(
+                "`/play <song>` - Play a song or add it to queue\n"
+                "`/pause` - Pause the current song\n"
+                "`/resume` - Resume the paused song\n"
+                "`/skip` - Skip the current song\n"
+                "`/stop` - Stop playing and clear the queue\n"
+                "`/loop` - Toggle loop mode\n"
+                "`/queue` - Show the current queue\n"
+                "`/shuffle` - Shuffle the current queue\n"
+                "`/rewind` - Restart the current song\n"
+                "`/previous` - Go back to previous song"
+            ),
+            inline=False
         )
+        
+        # Utility commands
+        embed.add_field(
+            name="🛠️ Utility Commands",
+            value=(
+                "`/disconnect` - Disconnect from voice channel\n"
+                "`/clear <amount>` - Clear messages from channel\n"
+                "`/ping` - Check bot latency\n"
+                "`/commands` - Display this help message"
+            ),
+            inline=False
+        )
+        
+        # Platform support
+        embed.add_field(
+            name="🌐 Supported Platforms",
+            value=(
+                "🎥 **YouTube** - Direct playback\n"
+                "🎵 **Spotify** - Converted to YouTube search\n"
+                "🔊 **SoundCloud** - Direct playback"
+            ),
+            inline=False
+        )
+        
+        embed.set_footer(text="Use slash commands (/) to interact with the bot")
+        
+        await interaction.response.send_message(embed=embed)
     
     # Text-based commands for backward compatibility
     @commands.command(name="play", aliases=['p'])
