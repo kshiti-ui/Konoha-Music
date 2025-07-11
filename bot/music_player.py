@@ -59,6 +59,8 @@ class MusicPlayer:
         if self.queue.is_empty():
             self.is_playing = False
             self.current_song = None
+            # Clear channel status when queue is empty
+            await self.update_channel_status("")
             # Auto-disconnect after queue ends
             await asyncio.sleep(30)  # Wait 30 seconds before disconnecting
             if self.queue.is_empty() and not self.is_playing:
@@ -110,6 +112,9 @@ class MusicPlayer:
             self.is_playing = True
             self.is_paused = False
             
+            # Update channel status with now playing
+            await self.update_channel_status(f"Now Playing: {song_info['title']}")
+            
             self.logger.info(f"Now playing: {song_info['title']}")
             
         except Exception as e:
@@ -142,12 +147,18 @@ class MusicPlayer:
         if self.voice_client and self.voice_client.is_playing():
             self.voice_client.pause()
             self.is_paused = True
+            # Update status to show paused state
+            if self.current_song:
+                asyncio.create_task(self.update_channel_status(f"⏸️ Paused: {self.current_song['title']}"))
     
     def resume(self):
         """Resume playback."""
         if self.voice_client and self.voice_client.is_paused():
             self.voice_client.resume()
             self.is_paused = False
+            # Update status back to now playing
+            if self.current_song:
+                asyncio.create_task(self.update_channel_status(f"Now Playing: {self.current_song['title']}"))
     
     def stop(self):
         """Stop playback."""
@@ -156,6 +167,8 @@ class MusicPlayer:
         self.is_playing = False
         self.is_paused = False
         self.current_song = None
+        # Clear status when stopped
+        asyncio.create_task(self.update_channel_status(""))
     
     def skip(self):
         """Skip current song."""
@@ -181,8 +194,20 @@ class MusicPlayer:
             'loop_mode': self.loop_mode
         }
     
+    async def update_channel_status(self, status):
+        """Update the voice channel status."""
+        try:
+            if self.voice_client and self.voice_client.channel:
+                await self.voice_client.channel.edit(status=status)
+                self.logger.info(f"Updated channel status: {status}")
+        except Exception as e:
+            self.logger.error(f"Failed to update channel status: {e}")
+    
     async def cleanup(self):
         """Clean up resources."""
+        # Set disconnect status before cleanup
+        await self.update_channel_status("Konoha Music was here")
+        
         self.stop()
         await self.disconnect()
         self.queue.clear()
