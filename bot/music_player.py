@@ -26,8 +26,12 @@ class MusicPlayer:
         try:
             if self.voice_client is None:
                 self.voice_client = await channel.connect()
+                # Deafen the bot when joining
+                await self.voice_client.guild.me.edit(deafen=True)
             elif self.voice_client.channel != channel:
                 await self.voice_client.move_to(channel)
+                # Deafen the bot when moving
+                await self.voice_client.guild.me.edit(deafen=True)
             return True
         except Exception as e:
             self.logger.error(f"Failed to connect to voice channel: {e}")
