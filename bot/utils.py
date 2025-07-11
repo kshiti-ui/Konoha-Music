@@ -51,7 +51,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
         """Search for a song and return info from multiple platforms."""
         loop = asyncio.get_event_loop()
         
-        ytdl = yt_dlp.YoutubeDL(Config.YTDL_OPTIONS)
+        # Faster YTDL options for quicker searches
+        fast_ytdl_options = Config.YTDL_OPTIONS.copy()
+        fast_ytdl_options.update({
+            'extract_flat': False,
+            'no_warnings': True,
+            'quiet': True,
+            'skip_download': True
+        })
+        ytdl = yt_dlp.YoutubeDL(fast_ytdl_options)
         
         try:
             # Handle different types of queries
@@ -59,35 +67,24 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 # Direct URL - detect platform and handle accordingly
                 platform = cls._detect_platform(query)
                 if platform == 'spotify':
-                    # For Spotify URLs, search on YouTube instead
-                    query = await cls._convert_spotify_to_youtube(query)
-                    if not query:
+                    # For Spotify URLs, convert to YouTube search
+                    youtube_query = await cls._convert_spotify_to_youtube(query)
+                    if youtube_query:
+                        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(youtube_query, download=False))
+                    else:
                         return None
-                
-                data = await loop.run_in_executor(None, lambda: ytdl.extract_info(query, download=False))
+                else:
+                    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(query, download=False))
             else:
-                # Text search - prioritize YouTube
-                search_queries = [
-                    f"ytsearch:{query}",
-                    f"scsearch:{query}",  # SoundCloud search
-                ]
-                
-                data = None
-                for search_query in search_queries:
-                    try:
-                        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(search_query, download=False))
-                        if data and 'entries' in data and data['entries']:
-                            break
-                    except Exception as e:
-                        logging.warning(f"Search failed for {search_query}: {e}")
-                        continue
-                
-                if not data:
-                    return None
+                # Text search - use YouTube first for speed
+                search_query = f"ytsearch1:{query}"
+                data = await loop.run_in_executor(None, lambda: ytdl.extract_info(search_query, download=False))
             
-            if 'entries' in data:
+            if 'entries' in data and data['entries']:
                 # Take first search result
                 data = data['entries'][0]
+            elif not data:
+                return None
             
             return {
                 'title': data.get('title', 'Unknown'),
@@ -118,24 +115,44 @@ class YTDLSource(discord.PCMVolumeTransformer):
         try:
             # Extract track info from Spotify URL using yt-dlp
             loop = asyncio.get_event_loop()
-            ytdl = yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True})
+            ytdl = yt_dlp.YoutubeDL({
+                'quiet': True, 
+                'no_warnings': True,
+                'extract_flat': False,
+                'skip_download': True
+            })
             
             # Try to extract Spotify track info
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(spotify_url, download=False))
             
             if data:
                 title = data.get('title', '')
-                artist = data.get('uploader', '') or data.get('artist', '')
+                artist = data.get('artist', '') or data.get('uploader', '') or data.get('creator', '')
+                album = data.get('album', '')
                 
-                # Create YouTube search query
+                # Create YouTube search query with artist and title
                 if artist and title:
-                    return f"ytsearch:{artist} {title}"
+                    return f"ytsearch1:{artist} - {title}"
                 elif title:
-                    return f"ytsearch:{title}"
+                    return f"ytsearch1:{title}"
+                else:
+                    # Fallback: extract from URL if possible
+                    import re
+                    track_match = re.search(r'/track/([a-zA-Z0-9]+)', spotify_url)
+                    if track_match:
+                        return f"ytsearch1:spotify track {track_match.group(1)}"
             
             return None
         except Exception as e:
             logging.error(f"Error converting Spotify URL: {e}")
+            # Fallback: try to extract track ID from URL
+            try:
+                import re
+                track_match = re.search(r'/track/([a-zA-Z0-9]+)', spotify_url)
+                if track_match:
+                    return f"ytsearch1:track {track_match.group(1)}"
+            except:
+                pass
             return None
 
 def format_duration(seconds):

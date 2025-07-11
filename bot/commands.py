@@ -11,7 +11,6 @@ class MusicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(__name__)
-        self.setup_channels = {}  # Store setup channels for each guild
     
     @app_commands.command(name="play", description="Play a song or add it to queue")
     async def play_slash(self, interaction: discord.Interaction, query: str):
@@ -42,13 +41,16 @@ class MusicCommands(commands.Cog):
             
             embed = discord.Embed(
                 title=f"{platform_emoji} Added to Queue",
-                description=f"**{song_info['title']}**\nRequested by {interaction.user.mention}",
+                description=f"**[{song_info['title']}]({song_info.get('url', '')})**\nRequested by {interaction.user.mention}",
                 color=discord.Color.green()
             )
             if song_info.get('duration'):
-                embed.add_field(name="Duration", value=format_duration(song_info['duration']))
+                embed.add_field(name="⏱️ Duration", value=format_duration(song_info['duration']), inline=True)
             if song_info.get('uploader'):
-                embed.add_field(name="Uploader", value=song_info['uploader'])
+                embed.add_field(name="👤 Author", value=song_info['uploader'], inline=True)
+            embed.add_field(name="🔗 Source", value=song_info.get('platform', 'youtube').title(), inline=True)
+            if song_info.get('url'):
+                embed.add_field(name="🎵 Watch", value=f"[Link]({song_info['url']})", inline=True)
             if song_info.get('thumbnail'):
                 embed.set_thumbnail(url=song_info['thumbnail'])
             await interaction.followup.send(embed=embed)

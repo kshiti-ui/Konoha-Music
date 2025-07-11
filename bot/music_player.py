@@ -59,6 +59,13 @@ class MusicPlayer:
         if self.queue.is_empty():
             self.is_playing = False
             self.current_song = None
+            # Auto-disconnect after queue ends
+            await asyncio.sleep(30)  # Wait 30 seconds before disconnecting
+            if self.queue.is_empty() and not self.is_playing:
+                await self.cleanup()
+                if self.guild_id in self.bot.music_players:
+                    del self.bot.music_players[self.guild_id]
+                self.logger.info("Auto-disconnected due to empty queue")
             return
         
         next_song = self.queue.get_next()
