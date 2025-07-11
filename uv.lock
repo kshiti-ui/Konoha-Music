@@ -202,6 +202,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/57/a8/dc908a0fe4cd7e3950c9fa6906f7bf2e5d92d36b432f84897185e1b77138/discord_py-2.5.2-py3-none-any.whl", hash = "sha256:81f23a17c50509ffebe0668441cb80c139e74da5115305f70e27ce821361295a", size = 1155105 },
 ]
 
+[package.optional-dependencies]
+voice = [
+    { name = "pynacl" },
+]
+
 [[package]]
 name = "frozenlist"
 version = "1.7.0"
@@ -485,7 +490,7 @@ name = "repl-nix-workspace"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "discord-py" },
+    { name = "discord-py", extra = ["voice"] },
     { name = "pynacl" },
     { name = "python-dotenv" },
     { name = "yt-dlp" },
@@ -493,7 +498,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "discord-py", specifier = ">=2.5.2" },
+    { name = "discord-py", extras = ["voice"], specifier = ">=2.5.2" },
     { name = "pynacl", specifier = ">=1.5.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "yt-dlp", specifier = ">=2025.6.30" },

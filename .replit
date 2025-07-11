@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["libsodium", "ffmpeg"]
+packages = ["ffmpeg", "libopus", "libsodium", "pkg-config"]
 
 [workflows]
 runButton = "Project"

@@ -5,6 +5,35 @@ from .music_player import MusicPlayer
 from .commands import MusicCommands
 from config import Config
 
+# Load Opus library for voice support
+import os
+import ctypes.util
+
+def load_opus():
+    # Try to load opus library
+    if not discord.opus.is_loaded():
+        # Try different possible opus library names
+        opus_libs = [
+            'libopus.so.0',
+            'libopus.so',
+            'opus',
+            ctypes.util.find_library('opus')
+        ]
+        
+        for lib in opus_libs:
+            if lib:
+                try:
+                    discord.opus.load_opus(lib)
+                    print(f"Successfully loaded opus library: {lib}")
+                    break
+                except Exception as e:
+                    print(f"Failed to load {lib}: {e}")
+                    continue
+        else:
+            print("Could not load opus library - trying to continue without it")
+
+load_opus()
+
 class MusicBot(commands.Bot):
     """Main Discord music bot class."""
     
