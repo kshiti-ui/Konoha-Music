@@ -26,12 +26,12 @@ class MusicPlayer:
         try:
             if self.voice_client is None:
                 self.voice_client = await channel.connect()
-                # Deafen the bot when joining
-                await self.voice_client.guild.me.edit(deafen=True)
+                # Self deafen the bot when joining
+                await self.voice_client.guild.me.edit(deafen=True, mute=False)
             elif self.voice_client.channel != channel:
                 await self.voice_client.move_to(channel)
-                # Deafen the bot when moving
-                await self.voice_client.guild.me.edit(deafen=True)
+                # Self deafen the bot when moving
+                await self.voice_client.guild.me.edit(deafen=True, mute=False)
             return True
         except Exception as e:
             self.logger.error(f"Failed to connect to voice channel: {e}")
@@ -59,10 +59,10 @@ class MusicPlayer:
         if self.queue.is_empty():
             self.is_playing = False
             self.current_song = None
-            # Clear channel status when queue is empty
-            await self.update_channel_status("")
+            # Set status when queue is empty
+            await self.update_channel_status("Konoha Music was here")
             # Auto-disconnect after queue ends
-            await asyncio.sleep(30)  # Wait 30 seconds before disconnecting
+            await asyncio.sleep(10)  # Wait 10 seconds before disconnecting
             if self.queue.is_empty() and not self.is_playing:
                 await self.cleanup()
                 if self.guild_id in self.bot.music_players:
@@ -167,8 +167,8 @@ class MusicPlayer:
         self.is_playing = False
         self.is_paused = False
         self.current_song = None
-        # Clear status when stopped
-        asyncio.create_task(self.update_channel_status(""))
+        # Set status when stopped
+        asyncio.create_task(self.update_channel_status("Konoha Music was here"))
     
     def skip(self):
         """Skip current song."""
