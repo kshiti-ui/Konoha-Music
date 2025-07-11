@@ -72,7 +72,7 @@ class MusicPlayer:
                 return
             
             # Create audio source
-            source = await YTDLSource.create_source(song_info['url'])
+            source = await YTDLSource.create_source(song_info['url'], volume=self.volume)
             if not source:
                 self.logger.error(f"Failed to create audio source for {song_info['title']}")
                 await self.play_next()
@@ -82,20 +82,33 @@ class MusicPlayer:
             if hasattr(source, 'volume'):
                 source.volume = self.volume
             
+            def after_playing(error):
+                if error:
+                    self.logger.error(f"Player error: {error}")
+                else:
+                    self.logger.info(f"Finished playing: {song_info['title']}")
+                
+                # Schedule next song
+                coro = self.play_next()
+                future = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
+                try:
+                    future.result()
+                except Exception as e:
+                    self.logger.error(f"Error in after_playing: {e}")
+            
             # Play audio
-            self.voice_client.play(
-                source,
-                after=lambda e: asyncio.run_coroutine_threadsafe(
-                    self.play_next(), self.bot.loop
-                ) if not e else self.logger.error(f"Player error: {e}")
-            )
+            self.voice_client.play(source, after=after_playing)
             
             self.current_song = song_info
             self.is_playing = True
             self.is_paused = False
             
+            self.logger.info(f"Now playing: {song_info['title']}")
+            
         except Exception as e:
             self.logger.error(f"Error playing song: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             await self.play_next()
     
     async def add_to_queue(self, query, requester):

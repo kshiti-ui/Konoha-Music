@@ -31,13 +31,19 @@ class YTDLSource(discord.PCMVolumeTransformer):
             
             filename = data['url']
             
+            # Create FFmpeg source with proper executable path
+            ffmpeg_options = Config.FFMPEG_OPTIONS.copy()
+            ffmpeg_options['executable'] = 'ffmpeg'
+            
             return cls(
-                discord.FFmpegPCMAudio(filename, **Config.FFMPEG_OPTIONS),
+                discord.FFmpegPCMAudio(filename, **ffmpeg_options),
                 data=data,
                 volume=volume
             )
         except Exception as e:
             logging.error(f"Error creating audio source: {e}")
+            logging.error(f"URL: {url}")
+            logging.error(f"Data: {data if 'data' in locals() else 'No data'}")
             return None
     
     @classmethod
