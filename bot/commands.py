@@ -53,9 +53,21 @@ class MusicCommands(commands.Cog):
                 embed.add_field(name="🎵 Watch", value=f"[Link]({song_info['url']})", inline=True)
             if song_info.get('thumbnail'):
                 embed.set_thumbnail(url=song_info['thumbnail'])
-            await interaction.followup.send(embed=embed)
+            message = await interaction.followup.send(embed=embed)
+            # Delete the message after 3 seconds
+            await asyncio.sleep(3)
+            try:
+                await message.delete()
+            except:
+                pass
         else:
-            await interaction.followup.send("❌ Failed to find or add the song to queue!")
+            message = await interaction.followup.send("❌ Failed to find or add the song to queue!")
+            # Delete the message after 3 seconds
+            await asyncio.sleep(3)
+            try:
+                await message.delete()
+            except:
+                pass
 
     @app_commands.command(name="pause", description="Pause the current song")
     async def pause_slash(self, interaction: discord.Interaction):
@@ -68,6 +80,12 @@ class MusicCommands(commands.Cog):
 
         music_player.pause()
         await interaction.response.send_message("⏸️ Paused the current song")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="resume", description="Resume the paused song")
     async def resume_slash(self, interaction: discord.Interaction):
@@ -80,6 +98,12 @@ class MusicCommands(commands.Cog):
 
         music_player.resume()
         await interaction.response.send_message("▶️ Resumed the song")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="skip", description="Skip the current song")
     async def skip_slash(self, interaction: discord.Interaction):
@@ -92,6 +116,12 @@ class MusicCommands(commands.Cog):
 
         music_player.skip()
         await interaction.response.send_message("⏭️ Skipped the current song")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="stop", description="Stop playing and clear the queue")
     async def stop_slash(self, interaction: discord.Interaction):
@@ -101,6 +131,12 @@ class MusicCommands(commands.Cog):
         music_player.stop()
         music_player.clear_queue()
         await interaction.response.send_message("⏹️ Stopped playing and cleared the queue")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="loop", description="Toggle loop mode")
     async def loop_slash(self, interaction: discord.Interaction):
@@ -110,6 +146,12 @@ class MusicCommands(commands.Cog):
         loop_status = music_player.toggle_loop()
         status_text = "enabled" if loop_status else "disabled"
         await interaction.response.send_message(f"🔄 Loop mode {status_text}")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="queue", description="Show the current queue")
     async def queue_slash(self, interaction: discord.Interaction):
@@ -175,6 +217,12 @@ class MusicCommands(commands.Cog):
             del self.bot.music_players[interaction.guild.id]
 
         await interaction.response.send_message("👋 Disconnected from voice channel")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="shuffle", description="Shuffle the current queue")
     async def shuffle_slash(self, interaction: discord.Interaction):
@@ -187,6 +235,12 @@ class MusicCommands(commands.Cog):
 
         music_player.queue.shuffle()
         await interaction.response.send_message("🔀 Shuffled the queue!")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="rewind", description="Restart the current song")
     async def rewind_slash(self, interaction: discord.Interaction):
@@ -205,6 +259,12 @@ class MusicCommands(commands.Cog):
         music_player.queue.add_to_front(music_player.current_song)
 
         await interaction.response.send_message("⏪ Rewinding current song!")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="previous", description="Go back to previous song")
     async def previous_slash(self, interaction: discord.Interaction):
@@ -230,6 +290,12 @@ class MusicCommands(commands.Cog):
         music_player.queue.add_to_front(prev_song)
 
         await interaction.response.send_message("⏮️ Playing previous song!")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="volume", description="Set the volume (0-100)")
     async def volume_slash(self, interaction: discord.Interaction, volume: int):
@@ -241,6 +307,12 @@ class MusicCommands(commands.Cog):
         music_player = self.bot.get_music_player(interaction.guild.id)
         music_player.set_volume(volume / 100.0)  # Convert to 0.0-1.0 range
         await interaction.response.send_message(f"🔊 Volume set to {volume}%")
+        # Delete the message after 3 seconds
+        await asyncio.sleep(3)
+        try:
+            await interaction.delete_original_response()
+        except:
+            pass
 
     @app_commands.command(name="ping", description="Check bot latency")
     async def ping_slash(self, interaction: discord.Interaction):
