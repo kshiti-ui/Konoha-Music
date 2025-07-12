@@ -102,14 +102,30 @@ class MusicCommands(commands.Cog):
         music_player.clear_queue()
         await interaction.response.send_message("⏹️ Stopped playing and cleared the queue")
 
-    @app_commands.command(name="loop", description="Toggle loop mode")
-    async def loop_slash(self, interaction: discord.Interaction):
+    @app_commands.command(name="loop", description="Set loop mode")
+    @app_commands.describe(mode="Choose loop mode: current, queue, or off")
+    @app_commands.choices(mode=[
+        app_commands.Choice(name="Current", value="current"),
+        app_commands.Choice(name="Queue", value="queue"),
+        app_commands.Choice(name="Off", value="off")
+    ])
+    async def loop_slash(self, interaction: discord.Interaction, mode: str = None):
         """Loop command via slash command."""
         music_player = self.bot.get_music_player(interaction.guild.id)
 
-        loop_status = music_player.toggle_loop()
-        status_text = "enabled" if loop_status else "disabled"
-        await interaction.response.send_message(f"🔄 Loop mode {status_text}")
+        if mode:
+            music_player.set_loop_mode(mode)
+            if mode == "off":
+                await interaction.response.send_message("🔄 Loop mode disabled")
+            elif mode == "current":
+                await interaction.response.send_message("🔂 Loop current song enabled")
+            elif mode == "queue":
+                await interaction.response.send_message("🔁 Loop queue enabled")
+        else:
+            # If no mode specified, toggle between off and queue
+            loop_status = music_player.toggle_loop()
+            status_text = "enabled" if loop_status else "disabled"
+            await interaction.response.send_message(f"🔄 Loop mode {status_text}")
 
     @app_commands.command(name="queue", description="Show the current queue")
     async def queue_slash(self, interaction: discord.Interaction):
@@ -856,12 +872,16 @@ class SetupControlView(discord.ui.View):
         """Toggle loop mode button."""
         music_player = self.bot.get_music_player(interaction.guild.id)
 
-        loop_status = music_player.toggle_loop()
-        if loop_status:
-            button.label = "Loop On"
+        # Default to queue mode when turning on loop from panel
+        if music_player.loop_mode == "off":
+            music_player.set_loop_mode("queue")
+            button.label = "Loop Queue"
+            button.emoji = "🔁"
             button.style = discord.ButtonStyle.success
         else:
+            music_player.set_loop_mode("off")
             button.label = "Loop Off"
+            button.emoji = "🔄"
             button.style = discord.ButtonStyle.secondary
 
         self.update_button_states(music_player)
@@ -882,12 +902,18 @@ class SetupControlView(discord.ui.View):
 
                 # Update loop button
                 elif 'Loop' in item.label:
-                    if music_player.loop_mode:
-                        item.label = "Loop On"
-                        item.style = discord.ButtonStyle.success
-                    else:
+                    if music_player.loop_mode == "off":
                         item.label = "Loop Off"
+                        item.emoji = "🔄"
                         item.style = discord.ButtonStyle.secondary
+                    elif music_player.loop_mode == "current":
+                        item.label = "Loop Current"
+                        item.emoji = "🔂"
+                        item.style = discord.ButtonStyle.success
+                    elif music_player.loop_mode == "queue":
+                        item.label = "Loop Queue"
+                        item.emoji = "🔁"
+                        item.style = discord.ButtonStyle.success
 
     async def on_timeout(self):
         """Called when the view times out."""

@@ -267,6 +267,14 @@ class MusicPlayer:
         asyncio.create_task(self.sync_setup_panels())
         return self.loop_mode
 
+    def set_loop_mode(self, mode):
+        """Set loop mode directly."""
+        if mode in ["off", "current", "queue"]:
+            self.loop_mode = mode
+            # Sync panels
+            asyncio.create_task(self.sync_setup_panels())
+        return self.loop_mode
+
     def set_volume(self, volume):
         """Set the volume (0.0 to 1.0)."""
         self.volume = max(0.0, min(1.0, volume))
