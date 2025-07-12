@@ -17,16 +17,13 @@ class MusicPlayer:
         self.is_playing = False
         self.is_paused = False
         self.loop_mode = False
-        self.volume = Config.DEFAULT_VOLUME
-        self.previous_songs = []  # Store previous songs for previous command
-        self.is_playing = False
-        self.is_paused = False
-        self.loop_mode = False
         self.volume = 1.0
-        self.previous_songs = []
+        self.previous_songs = []  # Store previous songs for previous command
         self.logger = logging.getLogger(__name__)
         self.cleanup_task = None
         self.setup_panels = []  # Store setup panel references
+        self.sync_task = None  # Continuous sync task
+        self.last_sync_state = None  # Track last known state
 
     async def connect(self, channel):
         """Connect to voice channel."""
@@ -191,6 +188,45 @@ class MusicPlayer:
     def register_setup_panel(self, panel):
         """Register a setup panel for auto-updates."""
         self.setup_panels.append(panel)
+        
+        # Start continuous sync if not already running
+        if not self.sync_task or self.sync_task.done():
+            self.sync_task = asyncio.create_task(self.continuous_sync())
+
+    async def continuous_sync(self):
+        """Continuously sync panels with real-time state monitoring."""
+        while self.setup_panels:
+            try:
+                await asyncio.sleep(2)  # Check every 2 seconds
+                
+                # Get current state
+                current_state = self.get_current_state()
+                
+                # Only sync if state changed
+                if current_state != self.last_sync_state:
+                    await self.sync_setup_panels()
+                    self.last_sync_state = current_state
+                    self.logger.info(f"Panel synced - State: {current_state}")
+                
+            except Exception as e:
+                self.logger.error(f"Error in continuous sync: {e}")
+                await asyncio.sleep(5)  # Wait longer if error
+        
+        # Stop task if no panels
+        if self.sync_task and not self.sync_task.done():
+            self.sync_task.cancel()
+
+    def get_current_state(self):
+        """Get current player state for comparison."""
+        return {
+            'is_playing': self.is_playing,
+            'is_paused': self.is_paused,
+            'loop_mode': self.loop_mode,
+            'volume': self.volume,
+            'current_song': self.current_song['title'] if self.current_song else None,
+            'queue_length': len(self.queue.get_all()),
+            'voice_connected': self.voice_client is not None and self.voice_client.is_connected()
+        }
 
     async def sync_setup_panels(self):
         """Sync all registered setup panels."""
@@ -202,6 +238,7 @@ class MusicPlayer:
                 if hasattr(panel, 'update_button_states'):
                     panel.update_button_states(self)
             except Exception as e:
+                self.logger.error(f"Panel sync error: {e}")
                 # Mark for removal
                 panels_to_remove.append(panel)
         
@@ -261,7 +298,12 @@ class MusicPlayer:
         # Set disconnect status before cleanup
         await self.update_channel_status("Konoha Music was here")
 
+        # Stop continuous sync task
+        if self.sync_task and not self.sync_task.done():
+            self.sync_task.cancel()
+
         self.stop()
         await self.disconnect()
         self.queue.clear()
         self.previous_songs.clear()
+        self.setup_panels.clear()

@@ -899,15 +899,11 @@ class SetupControlView(discord.ui.View):
                 messages = [message async for message in channel.history(limit=20)]
                 for message in messages:
                     if message.author == self.bot.user and message.embeds and message.embeds[0].footer and "Music Control Panel" in message.embeds[0].footer.text:
-                        # Create a mock interaction for updating
-                        class MockInteraction:
-                            def __init__(self, guild_id):
-                                self.guild = type('obj', (object,), {'id': guild_id})
-                        
-                        mock_interaction = MockInteraction(message.guild.id)
-                        
                         # Get updated embed
                         music_player = self.bot.get_music_player(message.guild.id)
+                        
+                        # Update button states first
+                        self.update_button_states(music_player)
                         
                         if music_player.current_song:
                             current = music_player.current_song
@@ -981,11 +977,19 @@ class SetupControlView(discord.ui.View):
 
                         embed.set_footer(text="Music Control Panel • Use buttons below to control playback")
                         
-                        # Update message
-                        await message.edit(embed=embed, view=self)
+                        # Update message with better error handling
+                        try:
+                            await message.edit(embed=embed, view=self)
+                            self.logger.info(f"Panel synced successfully for guild {message.guild.id}")
+                        except discord.HTTPException as http_err:
+                            self.logger.error(f"HTTP error syncing panel: {http_err}")
+                        except Exception as edit_err:
+                            self.logger.error(f"Error editing panel message: {edit_err}")
                         break
             except Exception as e:
                 self.logger.error(f"Failed to sync panel: {e}")
+                import traceback
+                self.logger.error(traceback.format_exc())
 
 # Second row of buttons
 class MusicControlView2(discord.ui.View):
