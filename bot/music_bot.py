@@ -1,8 +1,10 @@
 import discord
 from discord.ext import commands
 import logging
+import asyncio
 from .music_player import MusicPlayer
 from .commands import MusicCommands
+from .utils import format_duration
 from config import Config
 
 # Load Opus library for voice support
@@ -50,6 +52,7 @@ class MusicBot(commands.Bot):
         )
         
         self.music_players = {}
+        self.setup_channels = {}  # Track setup channels per guild
         self.logger = logging.getLogger(__name__)
         
     async def setup_hook(self):
@@ -99,6 +102,67 @@ class MusicBot(commands.Bot):
         """Handle messages."""
         if message.author.bot:
             return
+        
+        # Check if message is in a setup channel
+        if message.guild.id in self.setup_channels and message.channel.id == self.setup_channels[message.guild.id]:
+            # Check if user is in voice channel
+            if not message.author.voice:
+                await message.reply("❌ You need to be in a voice channel to play music!", delete_after=5)
+                return
+            
+            # Check if message contains a song request (not a command)
+            content = message.content.strip()
+            if not content.startswith('/') and not content.startswith('!') and len(content) > 0:
+                voice_channel = message.author.voice.channel
+                music_player = self.get_music_player(message.guild.id)
+                
+                # Connect to voice channel
+                if not await music_player.connect(voice_channel):
+                    await message.reply("❌ Failed to connect to voice channel!", delete_after=5)
+                    return
+                
+                # Add to queue
+                song_info = await music_player.add_to_queue(content, message.author)
+                if song_info:
+                    platform_emoji = {
+                        'youtube': '🎥',
+                        'spotify': '🎵',
+                        'soundcloud': '🔊'
+                    }.get(song_info.get('platform', 'youtube'), '🎵')
+
+                    embed = discord.Embed(
+                        title=f"{platform_emoji} Added to Queue",
+                        description=f"**[{song_info['title']}]({song_info.get('url', '')})**\nRequested by {message.author.mention}",
+                        color=discord.Color.green()
+                    )
+                    if song_info.get('duration'):
+                        embed.add_field(name="⏱️ Duration", value=format_duration(song_info['duration']), inline=True)
+                    if song_info.get('uploader'):
+                        embed.add_field(name="👤 Author", value=song_info['uploader'], inline=True)
+                    embed.add_field(name="🔗 Source", value=song_info.get('platform', 'youtube').title(), inline=True)
+                    if song_info.get('url'):
+                        embed.add_field(name="🎵 Watch", value=f"[Link]({song_info['url']})", inline=True)
+                    if song_info.get('thumbnail'):
+                        embed.set_thumbnail(url=song_info['thumbnail'])
+                    
+                    response_msg = await message.reply(embed=embed)
+                    
+                    # Delete messages after 3 seconds
+                    await asyncio.sleep(3)
+                    try:
+                        await message.delete()
+                        await response_msg.delete()
+                    except:
+                        pass
+                else:
+                    error_msg = await message.reply("❌ Failed to find or add the song to queue!")
+                    await asyncio.sleep(3)
+                    try:
+                        await message.delete()
+                        await error_msg.delete()
+                    except:
+                        pass
+                return
         
         # Process regular commands
         await self.process_commands(message)

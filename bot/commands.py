@@ -388,11 +388,18 @@ class MusicCommands(commands.Cog):
 
         embed.set_footer(text="Music Control Panel • Use buttons below to control playback")
 
+        # Track this channel as a setup channel
+        self.bot.setup_channels[interaction.guild.id] = interaction.channel.id
+        
         # Send the embed with control buttons to the channel
+        view = SetupControlView(self.bot, interaction.channel.id)
         message = await interaction.channel.send(
             embed=embed,
-            view=SetupControlView(self.bot, interaction.channel.id)
+            view=view
         )
+        
+        # Register the panel for auto-sync
+        music_player.register_setup_panel(view)
 
     # Text-based commands for backward compatibility
     @commands.command(name="play", aliases=['p'])
@@ -602,6 +609,7 @@ class SetupControlView(discord.ui.View):
         super().__init__(timeout=None)
         self.bot = bot
         self.channel_id = channel_id
+        self.logger = logging.getLogger(__name__)
 
         # Set initial button states
         guild_id = None
@@ -839,13 +847,97 @@ class SetupControlView(discord.ui.View):
         await interaction.response.send_message(f"🏓 Pong! Latency: {latency}ms", ephemeral=True)
 
     async def sync_panel(self):
+        """Sync the setup panel with current song info."""
         channel = self.bot.get_channel(self.channel_id)
         if channel:
             try:
                 messages = [message async for message in channel.history(limit=20)]
                 for message in messages:
-                    if message.author == self.bot.user and message.embeds:
-                        await self.update_panel(message)
+                    if message.author == self.bot.user and message.embeds and message.embeds[0].footer and "Music Control Panel" in message.embeds[0].footer.text:
+                        # Create a mock interaction for updating
+                        class MockInteraction:
+                            def __init__(self, guild_id):
+                                self.guild = type('obj', (object,), {'id': guild_id})
+                        
+                        mock_interaction = MockInteraction(message.guild.id)
+                        
+                        # Get updated embed
+                        music_player = self.bot.get_music_player(message.guild.id)
+                        
+                        if music_player.current_song:
+                            current = music_player.current_song
+                            platform_emoji = {
+                                'youtube': '🎥',
+                                'spotify': '🎵', 
+                                'soundcloud': '🔊'
+                            }.get(current.get('platform', 'youtube'), '🎵')
+
+                            # Status based on playing state
+                            if music_player.is_paused:
+                                status = "⏸️ Paused"
+                            elif music_player.is_playing:
+                                status = "🎵 Now Playing"
+                            else:
+                                status = "⏹️ Stopped"
+
+                            embed = discord.Embed(
+                                title=f"[ {status} ]",
+                                description=f"**{current['title']}**",
+                                color=discord.Color.purple()
+                            )
+
+                            # Add song details
+                            embed.add_field(
+                                name="🎵 Song Details",
+                                value=(
+                                    f"**{platform_emoji} {current['title']}**\n"
+                                    f"🎤 **Author:** {current.get('uploader', 'Unknown')}\n"
+                                    f"🔗 **Source:** {current.get('platform', 'youtube').title()}\n"
+                                    f"⏱️ **Duration:** {format_duration(current.get('duration', 0))}\n"
+                                    f"👤 **Requested By:** {current['requester'].mention}"
+                                ),
+                                inline=False
+                            )
+
+                            if current.get('thumbnail'):
+                                embed.set_image(url=current['thumbnail'])
+
+                            # Status info
+                            embed.add_field(
+                                name="🔊 Volume",
+                                value=f"{int(music_player.volume * 100)}%",
+                                inline=True
+                            )
+
+                            loop_status = "🔄 On" if music_player.loop_mode else "🔄 Off"
+                            embed.add_field(
+                                name="Loop Mode",
+                                value=loop_status,
+                                inline=True
+                            )
+
+                            queue_count = len(music_player.queue.get_all())
+                            embed.add_field(
+                                name="📋 Queue",
+                                value=f"{queue_count} songs",
+                                inline=True
+                            )
+                        else:
+                            embed = discord.Embed(
+                                title="[ No Song Playing ]",
+                                description="Use `/play <song>` to start playing music!",
+                                color=discord.Color.purple()
+                            )
+                            embed.add_field(
+                                name="🎵 Status",
+                                value="No music playing\nQueue is empty",
+                                inline=False
+                            )
+
+                        embed.set_footer(text="Music Control Panel • Use buttons below to control playback")
+                        
+                        # Update message
+                        await message.edit(embed=embed, view=self)
                         break
             except Exception as e:
                 self.logger.error(f"Failed to sync panel: {e}")
