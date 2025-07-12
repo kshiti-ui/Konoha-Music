@@ -233,6 +233,10 @@ class MusicPlayer:
 
     async def sync_setup_panels(self):
         """Sync all registered setup panels."""
+        if not self.setup_panels:
+            return
+            
+        self.logger.info(f"Manual panel sync triggered - Active panels: {len(self.setup_panels)}")
         panels_to_remove = []
         for panel in self.setup_panels:
             try:
@@ -240,6 +244,7 @@ class MusicPlayer:
                 # Update button states
                 if hasattr(panel, 'update_button_states'):
                     panel.update_button_states(self)
+                self.logger.info(f"Panel synced manually for guild {self.guild_id}")
             except Exception as e:
                 self.logger.error(f"Panel sync error: {e}")
                 # Mark for removal

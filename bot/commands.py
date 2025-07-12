@@ -53,6 +53,10 @@ class MusicCommands(commands.Cog):
                 embed.add_field(name="🎵 Watch", value=f"[Link]({song_info['url']})", inline=True)
             if song_info.get('thumbnail'):
                 embed.set_thumbnail(url=song_info['thumbnail'])
+            
+            # Sync panels immediately
+            await music_player.sync_setup_panels()
+            
             await interaction.followup.send(embed=embed)
         else:
             await interaction.followup.send("❌ Failed to find or add the song to queue!")
@@ -67,6 +71,8 @@ class MusicCommands(commands.Cog):
             return
 
         music_player.pause()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await interaction.response.send_message("⏸️ Paused the current song")
 
     @app_commands.command(name="resume", description="Resume the paused song")
@@ -79,6 +85,8 @@ class MusicCommands(commands.Cog):
             return
 
         music_player.resume()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await interaction.response.send_message("▶️ Resumed the song")
 
     @app_commands.command(name="skip", description="Skip the current song")
@@ -91,6 +99,8 @@ class MusicCommands(commands.Cog):
             return
 
         music_player.skip()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await interaction.response.send_message("⏭️ Skipped the current song")
 
     @app_commands.command(name="stop", description="Stop playing and clear the queue")
@@ -100,6 +110,8 @@ class MusicCommands(commands.Cog):
 
         music_player.stop()
         music_player.clear_queue()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await interaction.response.send_message("⏹️ Stopped playing and cleared the queue")
 
     @app_commands.command(name="loop", description="Set loop mode")
@@ -115,6 +127,8 @@ class MusicCommands(commands.Cog):
 
         if mode:
             music_player.set_loop_mode(mode)
+            # Sync panels immediately
+            await music_player.sync_setup_panels()
             if mode == "off":
                 await interaction.response.send_message("🔄 Loop mode disabled")
             elif mode == "current":
@@ -124,6 +138,8 @@ class MusicCommands(commands.Cog):
         else:
             # If no mode specified, toggle between off and queue
             loop_status = music_player.toggle_loop()
+            # Sync panels immediately
+            await music_player.sync_setup_panels()
             status_text = "enabled" if loop_status else "disabled"
             await interaction.response.send_message(f"🔄 Loop mode {status_text}")
 
@@ -202,6 +218,8 @@ class MusicCommands(commands.Cog):
             return
 
         music_player.queue.shuffle()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await interaction.response.send_message("🔀 Shuffled the queue!")
 
     @app_commands.command(name="rewind", description="Restart the current song")
@@ -256,6 +274,8 @@ class MusicCommands(commands.Cog):
 
         music_player = self.bot.get_music_player(interaction.guild.id)
         music_player.set_volume(volume / 100.0)  # Convert to 0.0-1.0 range
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await interaction.response.send_message(f"🔊 Volume set to {volume}%")
 
     @app_commands.command(name="ping", description="Check bot latency")
@@ -451,6 +471,8 @@ class MusicCommands(commands.Cog):
 
         song_info = await music_player.add_to_queue(query, ctx.author)
         if song_info:
+            # Sync panels immediately
+            await music_player.sync_setup_panels()
             await ctx.send(f"🎵 Added **{song_info['title']}** to queue")
         else:
             await ctx.send("❌ Failed to find or add the song to queue!")
@@ -465,6 +487,8 @@ class MusicCommands(commands.Cog):
             return
 
         music_player.pause()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await ctx.send("⏸️ Paused the current song")
 
     @commands.command(name="resume")
@@ -477,6 +501,8 @@ class MusicCommands(commands.Cog):
             return
 
         music_player.resume()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await ctx.send("▶️ Resumed the song")
 
     @commands.command(name="skip", aliases=['s'])
@@ -489,6 +515,8 @@ class MusicCommands(commands.Cog):
             return
 
         music_player.skip()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await ctx.send("⏭️ Skipped the current song")
 
     @commands.command(name="stop")
@@ -498,6 +526,8 @@ class MusicCommands(commands.Cog):
 
         music_player.stop()
         music_player.clear_queue()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         await ctx.send("⏹️ Stopped playing and cleared the queue")
 
     @commands.command(name="loop")
@@ -506,6 +536,8 @@ class MusicCommands(commands.Cog):
         music_player = self.bot.get_music_player(ctx.guild.id)
 
         loop_status = music_player.toggle_loop()
+        # Sync panels immediately
+        await music_player.sync_setup_panels()
         status_text = "enabled" if loop_status else "disabled"
         await ctx.send(f"🔄 Loop mode {status_text}")
 
