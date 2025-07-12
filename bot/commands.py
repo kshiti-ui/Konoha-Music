@@ -371,7 +371,12 @@ class MusicCommands(commands.Cog):
             )
 
             # Add loop status
-            loop_status = "🔄 On" if music_player.loop_mode else "🔄 Off"
+            loop_text = {
+                "off": "🔄 Off",
+                "current": "🔂 Current",
+                "queue": "🔁 Queue"
+            }.get(music_player.loop_mode, "🔄 Off")
+            loop_status = loop_text
             embed.add_field(
                 name="Loop Mode",
                 value=loop_status,
@@ -402,14 +407,14 @@ class MusicCommands(commands.Cog):
 
         # Track this channel as a setup channel
         self.bot.setup_channels[interaction.guild.id] = interaction.channel.id
-        
+
         # Send the embed with control buttons to the channel
         view = SetupControlView(self.bot, interaction.channel.id)
         message = await interaction.channel.send(
             embed=embed,
             view=view
         )
-        
+
         # Register the panel for auto-sync
         music_player.register_setup_panel(view)
 
@@ -697,7 +702,12 @@ class SetupControlView(discord.ui.View):
                 inline=True
             )
 
-            loop_status = "🔄 On" if music_player.loop_mode else "🔄 Off"
+            loop_text = {
+                "off": "🔄 Off",
+                "current": "🔂 Current",
+                "queue": "🔁 Queue"
+            }.get(music_player.loop_mode, "🔄 Off")
+            loop_status = loop_text
             embed.add_field(
                 name="Loop Mode",
                 value=loop_status,
@@ -869,7 +879,7 @@ class SetupControlView(discord.ui.View):
                     else:
                         item.label = "Pause"
                         item.emoji = "⏸️"
-                
+
                 # Update loop button
                 elif 'Loop' in item.label:
                     if music_player.loop_mode:
@@ -901,10 +911,10 @@ class SetupControlView(discord.ui.View):
                     if message.author == self.bot.user and message.embeds and message.embeds[0].footer and "Music Control Panel" in message.embeds[0].footer.text:
                         # Get updated embed
                         music_player = self.bot.get_music_player(message.guild.id)
-                        
+
                         # Update button states first
                         self.update_button_states(music_player)
-                        
+
                         if music_player.current_song:
                             current = music_player.current_song
                             platform_emoji = {
@@ -950,7 +960,12 @@ class SetupControlView(discord.ui.View):
                                 inline=True
                             )
 
-                            loop_status = "🔄 On" if music_player.loop_mode else "🔄 Off"
+                            loop_text = {
+                                "off": "🔄 Off",
+                                "current": "🔂 Current",
+                                "queue": "🔁 Queue"
+                            }.get(music_player.loop_mode, "🔄 Off")
+                            loop_status = loop_text
                             embed.add_field(
                                 name="Loop Mode",
                                 value=loop_status,
@@ -976,7 +991,7 @@ class SetupControlView(discord.ui.View):
                             )
 
                         embed.set_footer(text="Music Control Panel • Use buttons below to control playback")
-                        
+
                         # Update message with better error handling
                         try:
                             await message.edit(embed=embed, view=self)

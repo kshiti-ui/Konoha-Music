@@ -16,7 +16,7 @@ class MusicPlayer:
         self.current_song = None
         self.is_playing = False
         self.is_paused = False
-        self.loop_mode = False
+        self.loop_mode = "off"  # "off", "current", "queue"
         self.volume = 1.0
         self.previous_songs = []  # Store previous songs for previous command
         self.logger = logging.getLogger(__name__)
@@ -49,16 +49,19 @@ class MusicPlayer:
 
     async def play_next(self):
         """Play next song in queue."""
-        # Add current song to previous songs if it exists
-        if self.current_song and not self.loop_mode:
+        # Handle loop modes
+        if self.loop_mode == "current" and self.current_song:
+            # Loop current song - add it back to front of queue
+            self.queue.add_to_front(self.current_song)
+        elif self.loop_mode == "queue" and self.current_song:
+            # Loop queue - add current song to end of queue
+            self.queue.add(self.current_song)
+        elif self.loop_mode == "off" and self.current_song:
+            # No loop - add to previous songs
             self.previous_songs.append(self.current_song)
             # Keep only last 10 previous songs
             if len(self.previous_songs) > 10:
                 self.previous_songs.pop(0)
-
-        if self.loop_mode and self.current_song:
-            # Add current song back to front of queue for looping
-            self.queue.add_to_front(self.current_song)
 
         if self.queue.is_empty():
             self.is_playing = False
@@ -252,8 +255,14 @@ class MusicPlayer:
             self.voice_client.stop()
 
     def toggle_loop(self):
-        """Toggle loop mode."""
-        self.loop_mode = not self.loop_mode
+        """Toggle loop mode between off, current, and queue."""
+        if self.loop_mode == "off":
+            self.loop_mode = "current"
+        elif self.loop_mode == "current":
+            self.loop_mode = "queue"
+        else:
+            self.loop_mode = "off"
+        
         # Sync panels
         asyncio.create_task(self.sync_setup_panels())
         return self.loop_mode
