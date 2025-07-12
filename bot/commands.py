@@ -53,10 +53,10 @@ class MusicCommands(commands.Cog):
                 embed.add_field(name="🎵 Watch", value=f"[Link]({song_info['url']})", inline=True)
             if song_info.get('thumbnail'):
                 embed.set_thumbnail(url=song_info['thumbnail'])
-
+            
             # Sync panels immediately
             await music_player.sync_setup_panels()
-
+            
             await interaction.followup.send(embed=embed)
         else:
             await interaction.followup.send("❌ Failed to find or add the song to queue!")
@@ -430,7 +430,7 @@ class MusicCommands(commands.Cog):
         else:
             embed = discord.Embed(
                 title="[ No Song Playing ]",
-                description="**Konoha Music** is a feature-rich Discord music bot currently in beta and under active development. Expect regular updates, new features, and occasional bugs as we work hard to deliver the best music experience for your server. Your feedback is appreciated as we continue to improve!\n\n**Send music name or youtube link to play.**",
+                description="Use `/play <song>` to start playing music!",
                 color=discord.Color.purple()
             )
             embed.add_field(
@@ -438,8 +438,6 @@ class MusicCommands(commands.Cog):
                 value="No music playing\nQueue is empty",
                 inline=False
             )
-            # Add the Konoha Music GIF
-            embed.set_image(url="https://i.imgur.com/KonohaMusic.gif")
 
         embed.set_footer(text="Music Control Panel • Use buttons below to control playback")
 
@@ -773,7 +771,7 @@ class SetupControlView(discord.ui.View):
         else:
             embed = discord.Embed(
                 title="[ No Song Playing ]",
-                description="**Konoha Music** is a feature-rich Discord music bot currently in beta and under active development. Expect regular updates, new features, and occasional bugs as we work hard to deliver the best music experience for your server. Your feedback is appreciated as we continue to improve!\n\n**Send music name or youtube link to play.**",
+                description="Use `/play <song>` to start playing music!",
                 color=discord.Color.purple()
             )
             embed.add_field(
@@ -781,8 +779,6 @@ class SetupControlView(discord.ui.View):
                 value="No music playing\nQueue is empty",
                 inline=False
             )
-            # Add the Konoha Music GIF
-            embed.set_image(url="https://i.imgur.com/KonohaMusic.gif")
 
         embed.set_footer(text="Music Control Panel • Use buttons below to control playback")
 
@@ -1043,7 +1039,7 @@ class SetupControlView(discord.ui.View):
                         else:
                             embed = discord.Embed(
                                 title="[ No Song Playing ]",
-                                description="**Konoha Music** is a feature-rich Discord music bot currently in beta and under active development. Expect regular updates, new features, and occasional bugs as we work hard to deliver the best music experience for your server. Your feedback is appreciated as we continue to improve!\n\n**Send music name or youtube link to play.**",
+                                description="Use `/play <song>` to start playing music!",
                                 color=discord.Color.purple()
                             )
                             embed.add_field(
@@ -1051,8 +1047,6 @@ class SetupControlView(discord.ui.View):
                                 value="No music playing\nQueue is empty",
                                 inline=False
                             )
-                            # Add the Konoha Music GIF
-                            embed.set_image(url="https://i.imgur.com/KonohaMusic.gif")
 
                         embed.set_footer(text="Music Control Panel • Use buttons below to control playback")
 
