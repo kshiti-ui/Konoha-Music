@@ -295,7 +295,8 @@ class MusicCommands(commands.Cog):
     @app_commands.command(name="setup", description="Setup interactive music control panel")
     async def setup_slash(self, interaction: discord.Interaction):
         """Setup command to create music control panel."""
-        await interaction.response.defer()
+        # Send initial response first
+        await interaction.response.send_message("🎵 Setting up music control panel...", ephemeral=True)
         
         # Clear the channel (delete last 50 messages)
         try:
@@ -387,8 +388,8 @@ class MusicCommands(commands.Cog):
         
         embed.set_footer(text="Music Control Panel • Use buttons below to control playback")
         
-        # Send the embed with control buttons
-        message = await interaction.followup.send(
+        # Send the embed with control buttons to the channel
+        message = await interaction.channel.send(
             embed=embed,
             view=SetupControlView(self.bot, interaction.channel.id)
         )
