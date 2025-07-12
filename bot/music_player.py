@@ -68,8 +68,6 @@ class MusicPlayer:
             self.current_song = None
             # Set status when queue is empty
             await self.update_channel_status("Konoha Music was here")
-            # Sync panels to show "No Song Playing" state
-            await self.sync_setup_panels()
             # Auto-disconnect after queue ends
             await asyncio.sleep(10)  # Wait 10 seconds before disconnecting
             if self.queue.is_empty() and not self.is_playing:
@@ -124,9 +122,6 @@ class MusicPlayer:
             # Update channel status with now playing
             await self.update_channel_status(f"Now Playing: {song_info['title']}")
 
-            # Sync setup panels
-            await self.sync_setup_panels()
-
             self.logger.info(f"Now playing: {song_info['title']}")
 
         except Exception as e:
@@ -162,8 +157,6 @@ class MusicPlayer:
             # Update status to show paused state
             if self.current_song:
                 asyncio.create_task(self.update_channel_status(f"⏸️ Paused: {self.current_song['title']}"))
-            # Sync panels
-            asyncio.create_task(self.sync_setup_panels())
 
     def resume(self):
         """Resume playback."""
@@ -173,8 +166,6 @@ class MusicPlayer:
             # Update status back to now playing
             if self.current_song:
                 asyncio.create_task(self.update_channel_status(f"Now Playing: {self.current_song['title']}"))
-            # Sync panels
-            asyncio.create_task(self.sync_setup_panels())
 
     def stop(self):
         """Stop playback."""
@@ -185,8 +176,6 @@ class MusicPlayer:
         self.current_song = None
         # Set status when stopped
         asyncio.create_task(self.update_channel_status("Konoha Music was here"))
-        # Sync panels
-        asyncio.create_task(self.sync_setup_panels())
 
     def register_setup_panel(self, panel):
         """Register a setup panel for auto-updates."""
@@ -200,24 +189,45 @@ class MusicPlayer:
         """Continuously sync panels with real-time state monitoring."""
         while self.setup_panels:
             try:
-                await asyncio.sleep(2)  # Check every 2 seconds
+                await asyncio.sleep(5)  # Check every 5 seconds
                 
                 # Get current state
                 current_state = self.get_current_state()
                 
-                # Only sync if state changed
-                if current_state != self.last_sync_state:
-                    await self.sync_setup_panels()
+                # Only sync if state changed significantly
+                if self._should_sync(current_state):
+                    await self._internal_sync()
                     self.last_sync_state = current_state
-                    self.logger.info(f"Panel synced - State: {current_state}")
+                    self.logger.info(f"Auto panel sync - State changed")
                 
             except Exception as e:
                 self.logger.error(f"Error in continuous sync: {e}")
-                await asyncio.sleep(5)  # Wait longer if error
+                await asyncio.sleep(10)  # Wait longer if error
         
         # Stop task if no panels
         if self.sync_task and not self.sync_task.done():
             self.sync_task.cancel()
+
+    def _should_sync(self, current_state):
+        """Check if sync is needed based on state changes."""
+        if not self.last_sync_state:
+            return True
+        
+        # Check for significant changes only
+        important_changes = [
+            'is_playing', 'is_paused', 'current_song', 
+            'loop_mode', 'voice_connected'
+        ]
+        
+        for key in important_changes:
+            if current_state.get(key) != self.last_sync_state.get(key):
+                return True
+        
+        # Check for volume changes (rounded to avoid float precision issues)
+        if abs(current_state.get('volume', 0) - self.last_sync_state.get('volume', 0)) > 0.01:
+            return True
+            
+        return False
 
     def get_current_state(self):
         """Get current player state for comparison."""
@@ -232,11 +242,25 @@ class MusicPlayer:
         }
 
     async def sync_setup_panels(self):
-        """Sync all registered setup panels."""
+        """Public method to sync panels with debouncing."""
+        if not hasattr(self, '_sync_lock'):
+            self._sync_lock = False
+            
+        if self._sync_lock:
+            return  # Already syncing, skip
+            
+        self._sync_lock = True
+        try:
+            await self._internal_sync()
+        finally:
+            self._sync_lock = False
+
+    async def _internal_sync(self):
+        """Internal sync method that does the actual work."""
         if not self.setup_panels:
             return
             
-        self.logger.info(f"Manual panel sync triggered - Active panels: {len(self.setup_panels)}")
+        self.logger.info(f"Panel sync - Active panels: {len(self.setup_panels)}")
         panels_to_remove = []
         for panel in self.setup_panels:
             try:
@@ -244,10 +268,8 @@ class MusicPlayer:
                 # Update button states
                 if hasattr(panel, 'update_button_states'):
                     panel.update_button_states(self)
-                self.logger.info(f"Panel synced manually for guild {self.guild_id}")
             except Exception as e:
                 self.logger.error(f"Panel sync error: {e}")
-                # Mark for removal
                 panels_to_remove.append(panel)
         
         # Remove invalid panels
@@ -268,16 +290,12 @@ class MusicPlayer:
         else:
             self.loop_mode = "off"
         
-        # Sync panels
-        asyncio.create_task(self.sync_setup_panels())
         return self.loop_mode
 
     def set_loop_mode(self, mode):
         """Set loop mode directly."""
         if mode in ["off", "current", "queue"]:
             self.loop_mode = mode
-            # Sync panels
-            asyncio.create_task(self.sync_setup_panels())
         return self.loop_mode
 
     def set_volume(self, volume):
@@ -288,9 +306,6 @@ class MusicPlayer:
         if self.voice_client and self.voice_client.source:
             if hasattr(self.voice_client.source, 'volume'):
                 self.voice_client.source.volume = self.volume
-        
-        # Sync panels to update volume display
-        asyncio.create_task(self.sync_setup_panels())
 
     def clear_queue(self):
         """Clear the queue."""
