@@ -68,6 +68,8 @@ class MusicPlayer:
             self.current_song = None
             # Set status when queue is empty
             await self.update_channel_status("Konoha Music was here")
+            # Sync panels to show "No Song Playing" state
+            await self.sync_setup_panels()
             # Auto-disconnect after queue ends
             await asyncio.sleep(10)  # Wait 10 seconds before disconnecting
             if self.queue.is_empty() and not self.is_playing:
@@ -160,6 +162,8 @@ class MusicPlayer:
             # Update status to show paused state
             if self.current_song:
                 asyncio.create_task(self.update_channel_status(f"⏸️ Paused: {self.current_song['title']}"))
+            # Sync panels
+            asyncio.create_task(self.sync_setup_panels())
 
     def resume(self):
         """Resume playback."""
@@ -169,6 +173,8 @@ class MusicPlayer:
             # Update status back to now playing
             if self.current_song:
                 asyncio.create_task(self.update_channel_status(f"Now Playing: {self.current_song['title']}"))
+            # Sync panels
+            asyncio.create_task(self.sync_setup_panels())
 
     def stop(self):
         """Stop playback."""
@@ -179,6 +185,8 @@ class MusicPlayer:
         self.current_song = None
         # Set status when stopped
         asyncio.create_task(self.update_channel_status("Konoha Music was here"))
+        # Sync panels
+        asyncio.create_task(self.sync_setup_panels())
 
     def register_setup_panel(self, panel):
         """Register a setup panel for auto-updates."""
@@ -209,6 +217,8 @@ class MusicPlayer:
     def toggle_loop(self):
         """Toggle loop mode."""
         self.loop_mode = not self.loop_mode
+        # Sync panels
+        asyncio.create_task(self.sync_setup_panels())
         return self.loop_mode
 
     def set_volume(self, volume):
@@ -219,6 +229,9 @@ class MusicPlayer:
         if self.voice_client and self.voice_client.source:
             if hasattr(self.voice_client.source, 'volume'):
                 self.voice_client.source.volume = self.volume
+        
+        # Sync panels to update volume display
+        asyncio.create_task(self.sync_setup_panels())
 
     def clear_queue(self):
         """Clear the queue."""

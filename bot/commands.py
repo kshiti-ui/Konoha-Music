@@ -774,9 +774,6 @@ class SetupControlView(discord.ui.View):
         music_player.queue.add_to_front(prev_song)
         await interaction.response.send_message("⏮️ Playing previous", ephemeral=True, delete_after=3)
 
-        await asyncio.sleep(1)  # Wait for song to start
-        await self.sync_panel()
-
     @discord.ui.button(label="Skip", style=discord.ButtonStyle.secondary, emoji="⏭️", row=0)
     async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Skip song button."""
@@ -788,8 +785,6 @@ class SetupControlView(discord.ui.View):
 
         music_player.skip()
         await interaction.response.send_message("⏭️ Skipped", ephemeral=True, delete_after=3)
-        await asyncio.sleep(1)
-        await self.sync_panel()
 
     @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger, emoji="⏹️", row=0)
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -799,8 +794,6 @@ class SetupControlView(discord.ui.View):
         music_player.stop()
         music_player.clear_queue()
         await interaction.response.send_message("⏹️ Stopped", ephemeral=True, delete_after=3)
-        self.update_button_states(music_player)
-        await self.sync_panel()
 
     @discord.ui.button(label="Queue", style=discord.ButtonStyle.secondary, emoji="📋", row=1)
     async def queue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
