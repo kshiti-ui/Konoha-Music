@@ -116,13 +116,28 @@ class MusicBot(commands.Bot):
                 voice_channel = message.author.voice.channel
                 music_player = self.get_music_player(message.guild.id)
                 
+                # Show thinking status
+                thinking_msg = await message.reply("🎵 Konoha music is thinking...")
+                
                 # Connect to voice channel
                 if not await music_player.connect(voice_channel):
-                    await message.reply("❌ Failed to connect to voice channel!", delete_after=5)
+                    await thinking_msg.edit(content="❌ Failed to connect to voice channel!")
+                    await asyncio.sleep(5)
+                    try:
+                        await message.delete()
+                        await thinking_msg.delete()
+                    except:
+                        pass
                     return
                 
                 # Add to queue
                 song_info = await music_player.add_to_queue(content, message.author)
+                
+                # Delete thinking message
+                try:
+                    await thinking_msg.delete()
+                except:
+                    pass
                 if song_info:
                     platform_emoji = {
                         'youtube': '🎥',

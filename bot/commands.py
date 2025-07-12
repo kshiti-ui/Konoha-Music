@@ -231,6 +231,17 @@ class MusicCommands(commands.Cog):
 
         await interaction.response.send_message("⏮️ Playing previous song!")
 
+    @app_commands.command(name="volume", description="Set the volume (0-100)")
+    async def volume_slash(self, interaction: discord.Interaction, volume: int):
+        """Volume command via slash command."""
+        if volume < 0 or volume > 100:
+            await interaction.response.send_message("❌ Volume must be between 0 and 100!")
+            return
+
+        music_player = self.bot.get_music_player(interaction.guild.id)
+        music_player.set_volume(volume / 100.0)  # Convert to 0.0-1.0 range
+        await interaction.response.send_message(f"🔊 Volume set to {volume}%")
+
     @app_commands.command(name="ping", description="Check bot latency")
     async def ping_slash(self, interaction: discord.Interaction):
         """Ping command via slash command."""
@@ -259,7 +270,8 @@ class MusicCommands(commands.Cog):
                 "`/queue` - Show the current queue\n"
                 "`/shuffle` - Shuffle the current queue\n"
                 "`/rewind` - Restart the current song\n"
-                "`/previous` - Go back to previous song"
+                "`/previous` - Go back to previous song\n"
+                "`/volume <0-100>` - Set the volume"
             ),
             inline=False
         )
@@ -738,6 +750,8 @@ class SetupControlView(discord.ui.View):
             await interaction.response.send_message("❌ Nothing is currently playing!", ephemeral=True)
             return
 
+        # Update all button states
+        self.update_button_states(music_player)
         await self.update_panel(interaction)
 
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.secondary, emoji="⏮️", row=0)
@@ -763,6 +777,20 @@ class SetupControlView(discord.ui.View):
         await asyncio.sleep(1)  # Wait for song to start
         await self.sync_panel()
 
+    @discord.ui.button(label="Skip", style=discord.ButtonStyle.secondary, emoji="⏭️", row=0)
+    async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Skip song button."""
+        music_player = self.bot.get_music_player(interaction.guild.id)
+
+        if not music_player.is_playing:
+            await interaction.response.send_message("❌ Nothing is currently playing!", ephemeral=True)
+            return
+
+        music_player.skip()
+        await interaction.response.send_message("⏭️ Skipped", ephemeral=True, delete_after=3)
+        await asyncio.sleep(1)
+        await self.sync_panel()
+
     @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger, emoji="⏹️", row=0)
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Stop playback button."""
@@ -771,6 +799,7 @@ class SetupControlView(discord.ui.View):
         music_player.stop()
         music_player.clear_queue()
         await interaction.response.send_message("⏹️ Stopped", ephemeral=True, delete_after=3)
+        self.update_button_states(music_player)
         await self.sync_panel()
 
     @discord.ui.button(label="Queue", style=discord.ButtonStyle.secondary, emoji="📋", row=1)
@@ -832,7 +861,30 @@ class SetupControlView(discord.ui.View):
             button.label = "Loop Off"
             button.style = discord.ButtonStyle.secondary
 
+        self.update_button_states(music_player)
         await self.update_panel(interaction)
+
+    def update_button_states(self, music_player):
+        """Update all button states based on current player state."""
+        for item in self.children:
+            if hasattr(item, 'label'):
+                # Update pause/resume button
+                if 'Pause' in item.label or 'Resume' in item.label:
+                    if music_player.is_paused:
+                        item.label = "Resume"
+                        item.emoji = "▶️"
+                    else:
+                        item.label = "Pause"
+                        item.emoji = "⏸️"
+                
+                # Update loop button
+                elif 'Loop' in item.label:
+                    if music_player.loop_mode:
+                        item.label = "Loop On"
+                        item.style = discord.ButtonStyle.success
+                    else:
+                        item.label = "Loop Off"
+                        item.style = discord.ButtonStyle.secondary
 
     async def on_timeout(self):
         """Called when the view times out."""

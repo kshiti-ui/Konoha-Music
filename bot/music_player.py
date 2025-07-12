@@ -186,12 +186,20 @@ class MusicPlayer:
 
     async def sync_setup_panels(self):
         """Sync all registered setup panels."""
+        panels_to_remove = []
         for panel in self.setup_panels:
             try:
                 await panel.sync_panel()
-            except:
-                # Remove invalid panels
-                self.setup_panels.remove(panel)
+                # Update button states
+                if hasattr(panel, 'update_button_states'):
+                    panel.update_button_states(self)
+            except Exception as e:
+                # Mark for removal
+                panels_to_remove.append(panel)
+        
+        # Remove invalid panels
+        for panel in panels_to_remove:
+            self.setup_panels.remove(panel)
 
     def skip(self):
         """Skip current song."""
@@ -202,6 +210,15 @@ class MusicPlayer:
         """Toggle loop mode."""
         self.loop_mode = not self.loop_mode
         return self.loop_mode
+
+    def set_volume(self, volume):
+        """Set the volume (0.0 to 1.0)."""
+        self.volume = max(0.0, min(1.0, volume))
+        
+        # Update current playing source volume if exists
+        if self.voice_client and self.voice_client.source:
+            if hasattr(self.voice_client.source, 'volume'):
+                self.voice_client.source.volume = self.volume
 
     def clear_queue(self):
         """Clear the queue."""
